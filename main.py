@@ -6,13 +6,11 @@ import config
 
 pygame.init()
 
-
 # Set up the display
 screen = pygame.display.set_mode((config.SCREEN_WIDTH, config.SCREEN_HEIGHT))
 pygame.display.set_caption("Shatter - Visual Effects")
 pygame.mouse.set_cursor(pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_CROSSHAIR))
 clock = pygame.time.Clock()
-screen.fill((0, 0, 64))
 class Shard:
     def __init__(self, x, y, angle, speed, color, scale, lifespan=4.0):
         self.loc = Vector2(x, y)
@@ -26,11 +24,36 @@ class Shard:
         self.alpha = int(255 *  (1 - 2 * self.age / self.lifespan))
         
     def move(self, dt):
-        pass
-    
-    def draw(self, surf):
-        pass
+        self.age += dt
+        if self.age >= self.lifespan:
+            self.alive = False
+            return
         
+     # Reduce speed over time
+        current_speed = self.speed * (1 - self.age / self.lifespan)
+        self.loc.x += math.cos(self.angle) * current_speed * dt
+        self.loc.y += math.sin(self.angle) * current_speed * dt
+
+        # Update alpha for fading
+        self.alpha = int(255 * (1 - self.age / self.lifespan))
+        self.color = (self.color[0], self.color[1], self.color[2], self.alpha)
+    
+    def draw(self, surf, offset=[0, 0]):
+        if self.alive and self.alpha > 0:
+            points = [
+                [self.loc.x + offset[0], self.loc.y + offset[1]],  # Center
+                [self.loc.x + math.cos(self.angle) * self.speed * self.scale + offset[0],
+                self.loc.y + math.sin(self.angle) * self.speed * self.scale + offset[1]],  # Forward tip
+                [self.loc.x + math.cos(self.angle + math.pi / 2) * self.speed * self.scale * 0.3 + offset[0],
+                self.loc.y + math.sin(self.angle + math.pi / 2) * self.speed * self.scale * 0.3 + offset[1]],  # Right wing
+                [self.loc.x + math.cos(self.angle - math.pi / 2) * self.speed * self.scale * 0.3 + offset[0],
+                self.loc.y + math.sin(self.angle - math.pi / 2) * self.speed * self.scale * 0.3 + offset[1]],  # Left wing
+            ]
+            surface_size = int(self.scale * 20)
+            spark_surface = pygame.Surface((surface_size, surface_size), pygame.SRCALPHA)
+            pygame.draw.polygon(spark_surface, (*self.color[:3], self.alpha), [(p[0] - self.loc.x, p[1] - self.loc.y) for p in points])
+            surf.blit(spark_surface, (self.loc.x - surface_size / 2, self.loc.y - surface_size / 2))
+            
     def update(self, dt):
         self.move(dt)
 
@@ -39,17 +62,17 @@ shards = []
 executing = True
 duration = 0
 
+# Main loop (replace the relevant part)
 while executing:
-    dt = clock.tick(config.FPS)/1000
+    dt = clock.tick(config.FPS) / 1000
     duration += dt
     for event in pygame.event.get():
         if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
             print(f"➡️ quit by closing the application window")
             executing = False
         if event.type == pygame.KEYDOWN and event.key == pygame.K_TAB:
-            bg_color = (randrange(0, 100), randrange(0, 100), randrange(0, 100))
-            print(f"➡️ background color changed to rgb{bg_color}")
-            screen.fill(bg_color)
+            config.BG_COLOR = (randrange(0, 40), randrange(0, 40), randrange(0, 40))
+            print(f"➡️ background color changed to rgb{config.BG_COLOR}")
         if event.type == pygame.MOUSEBUTTONDOWN:
             mx, my = pygame.mouse.get_pos()
             print(f"➡️ clicked at {mx, my}")
@@ -57,14 +80,20 @@ while executing:
                 angle = math.radians(randrange(0, 360))
                 speed = randrange(100, 300)
                 scale = uniform(0.5, 1.5)
-                color = (255, 25, 255)
+                color = (config.SHARD_COLOR)
                 shards.append(Shard(mx, my, angle, speed, color, scale))
-    for i, shard in sorted(enumerate(shards), reverse=True):
+    
+    screen.fill(config.BG_COLOR) 
+    to_remove = []  # Collect indices of shards to remove
+    for i, shard in enumerate(shards[::-1]):  # Reverse order for drawing
         shard.update(dt)
         shard.draw(screen)
         if not shard.alive:
-            shard.pop(i)
+            to_remove.append(len(shards) - 1 - i)  # Store original index
+    for index in sorted(to_remove, reverse=True):  # Remove from highest to lowest index
+        shards.pop(index)
     pygame.display.flip()
+
 pygame.quit()
 print(f"Execution loop was running for {round(duration, 2)}s.")
           
