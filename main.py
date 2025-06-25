@@ -5,6 +5,17 @@ from pygame.math import Vector2
 import config
 
 pygame.init()
+pygame.mixer.init()
+
+try:
+    pygame.mixer.music.load("audio/chime.mp3")
+    pygame.mixer.music.set_volume(0.5)
+    pygame.mixer.music.play(-1)
+    feedback_sound = pygame.mixer.Sound("audio/shatter2.mp3")
+except FileNotFoundError:
+    print("Audio file not found. Running without sound.")
+    feedback_sound = None
+    
 
 # Set up the display
 screen = pygame.display.set_mode((config.SCREEN_WIDTH, config.SCREEN_HEIGHT))
@@ -62,7 +73,7 @@ shards = []
 executing = True
 duration = 0
 
-# Main loop (replace the relevant part)
+# Main loop
 while executing:
     dt = clock.tick(config.FPS) / 1000
     duration += dt
@@ -74,6 +85,7 @@ while executing:
             config.BG_COLOR = (randrange(0, 40), randrange(0, 40), randrange(0, 40))
             print(f"➡️ background color changed to rgb{config.BG_COLOR}")
         if event.type == pygame.MOUSEBUTTONDOWN:
+            feedback_sound.play()
             mx, my = pygame.mouse.get_pos()
             print(f"➡️ clicked at {mx, my}")
             for _ in range(40):
